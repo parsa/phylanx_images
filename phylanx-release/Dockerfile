@@ -1,45 +1,49 @@
-FROM prsam/phylanx_images:hpx-release
+FROM prsam/hpx_auto:master-release
 
-RUN apt-get update
-# Python 3 & Pip
-RUN apt-get -y install python3 python3-dev python3-pip
-# LAPACK & BLAS
-RUN apt-get -y install libblas-dev liblapack-dev
-# HDF5
-RUN apt-get -y install libhdf5-dev
-# SetupTools
-RUN pip3 install setuptools
-# PyTest
-RUN pip3 install pytest
-# NumPy
-RUN pip3 install numpy
-# flake8
-RUN pip3 install flake8
+RUN apt-get update &&                             \
+    apt-get install --yes --no-install-recommends \
+                python3                           \
+                python3-dev                       \
+                python3-pip                       \
+                libblas-dev                       \
+                liblapack-dev                     \
+                libhdf5-dev &&                    \
+    apt-get purge && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 --no-cache-dir install setuptools && \
+    pip3 --no-cache-dir install pytest     && \
+    pip3 --no-cache-dir install numpy      && \
+    pip3 --no-cache-dir install flake8
+
 # pybind
-RUN git clone --depth=1 https://github.com/pybind/pybind11.git /pybind11-src
-RUN mkdir -p /pybind11-src/build
-RUN cd build && cmake -DCMAKE_BUILD_TYPE=Release -DPYBIND11_TEST=OFF ..
-RUN make -C /pybind11-src/build install
-RUN rm -rf /pybind11-src
+RUN git clone --depth=1 https://github.com/pybind/pybind11.git /pybind11          && \
+    mkdir -p /pybind11/build                                                      && \
+    cd /pybind11/build && cmake -DCMAKE_BUILD_TYPE=Release -DPYBIND11_TEST=OFF .. && \
+    make -C /pybind11/build install                                               && \
+    rm -rf /pybind11
 # Blaze
-RUN git clone --depth=1 https://bitbucket.org/blaze-lib/blaze.git /blaze-src
-RUN mkdir -p /blaze-src/build
-RUN cd /blaze-src/build && cmake -DCMAKE_BUILD_TYPE=Release -DBLAZE_SMP_THREADS=C++11 ..
-RUN make -C /blaze-src/build install
-RUN rm -rf /blaze-src
+RUN git clone --depth=1 https://bitbucket.org/blaze-lib/blaze.git /blaze             && \
+    mkdir -p /blaze/build                                                            && \
+    cd /blaze/build && cmake -DCMAKE_BUILD_TYPE=Release -DBLAZE_SMP_THREADS=C++11 .. && \
+    make -C /blaze/build install                                                     && \
+    rm -rf /blaze
 # HighFive
-RUN git clone --depth=1 https://github.com/BlueBrain/HighFive.git /highfive-src
-RUN mkdir -p /highfive-src/build
-RUN cd /highfive-src/build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_BOOST=Off ..
-RUN make -C /highfive-src/build install
-RUN rm -rf /highfive-src
+RUN git clone --depth=1 https://github.com/BlueBrain/HighFive.git /highfive   && \
+    mkdir -p /highfive/build                                                  && \
+    cd /highfive/build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_BOOST=Off .. && \
+    make -C /highfive/build install                                           && \
+    rm -rf /highfive
 
 # Phylanx itself
-RUN git clone --depth=1 https://github.com/STEllAR-Group/phylanx /phylanx
-RUN mkdir /phylanx/build
-RUN cd phylanx/build && cmake -DCMAKE_BUILD_TYPE=Release -DPHYLANX_WITH_GIT_COMMIT=$(git rev-parse HEAD) -DPHYLANX_WITH_TOOLS=Off -DHPX_DIR=/usr/local/lib/cmake/HPX -Dblaze_DIR=/blaze/share/blaze/cmake -DPHYLANX_WITH_HIGHFIVE=On ..
-RUN make -C /phylanx/build -j20
-RUN make -C /phylanx/build -j20 install
-RUN rm -rf /phylanx/build
-
-RUN ldconfig
+RUN export N_CORES=$(grep -c ^processor /proc/cpuinfo)                        && \
+    git clone --depth=1 https://github.com/STEllAR-Group/phylanx /phylanx     && \
+    mkdir -p /phylanx/build                                                   && \
+    cd phylanx/build && cmake -DCMAKE_BUILD_TYPE=Release                         \ 
+                              -DPHYLANX_WITH_GIT_COMMIT=$(git rev-parse HEAD)    \
+                              -DHPX_DIR=/usr/local/lib/cmake/HPX                 \
+                              -Dblaze_DIR=/blaze/share/blaze/cmake               \
+                              -DPHYLANX_WITH_HIGHFIVE=On ..                   && \
+    make -C /phylanx/build -j$N_CORES                                         && \
+    make -C /phylanx/build -j$N_CORES install                                 && \
+    rm -rf /phylanx/build                                                     && \
+    ldconfig
